@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+
+
+from mikrotik_swos import utils
+from mikrotik_swos.swostab import Swostab
+
+
+# payload
+# [{vid:0x64,nm:'696e7465726e6574',piso:0x01,lrn:0x01,mrr:0x00,igmp:0x00,mbr:0x01c20000},{vid:0x044c,nm:'70726976617465',piso:0x01,lrn:0x01,mrr:0x00,igmp:0x00,mbr:0xc00003},{vid:0x044d,nm:'7075626c6963',piso:0x01,lrn:0x01,mrr:0x00,igmp:0x00,mbr:0xc00004},{vid:0x044e,nm:'736670',piso:0x01,lrn:0x01,mrr:0x00,igmp:0x00,mbr:0x01c20000}]
+PAGE = "/vlan.b"
+
+VLAN_NAME_LENGTH_MAX = 16
+
+
+class Mikrotik_Vlans(Swostab):
+    def _load_tab_data(self):
+        self._page = PAGE
+        self._parsed_data = {}
+
+        self._data = utils.mikrotik_to_json(self._get(PAGE).text)
+        for i in self._data:
+            self._parsed_data[int(i['vid'], 16)] = {
+                "idx": i,
+                "nm": utils.decode_string(i["nm"]),
+                "piso": utils.decode_checkbox(i["piso"]),
+                "lrn": utils.decode_checkbox(i["lrn"]),
+                "mrr": utils.decode_checkbox(i["mrr"]),
+                "igmp": utils.decode_checkbox(i["igmp"]),
+                "mbr": utils.decode_listofflags(
+                    i["mbr"], self.port_count
+                )
+            }
+
+    def get(self, vlan_id):
+        return self._parsed_data.get(vlan_id)
+
+    def get_vlans(self):
+        return list(self._parsed_data)
+
+    def reset_member_cfg(self):
+        for vlan in self._parsed_data:
+            self._parsed_data[vlan]["mbr"] = [0] * self.port_count
+
+    def add_port(self, vlan_id, port_id):
+        """
+        vlan_id             vlan id
+        port_id             port index
+
+        """
+
+        if port_id < 1 or port_id > self.port_count:
+            raise ValueError(f"port_id is outside 1..{self.port_count}")
+
+        _vlan_config = self.get(vlan_id)
+        if _vlan_config:
+            _vlan_config["mbr"][port_id-1] = 1
+            return
+
+        raise ValueError(f"vlan id {vlan_id} is not configured on the switch")
+
+
+    def add(self, vlan_id, **kwargs):
+        """
+        vlan_id             vlan id
+        name                vlan name
+        port_isolation      true / false
+        learning            true / false
+        mirror              true / false
+        igmp_snooping       true / false
+
+        """
+        vlan_name = kwargs.get("name", str(vlan_id))
+        if len(vlan_name) > VLAN_NAME_LENGTH_MAX:
+            raise ValueError(f"vlan name length is greater than {VLAN_NAME_LENGTH_MAX}")
+
+        _vlan_config = self.get(vlan_id)
+        if _vlan_config is None:
+            _vlan_config = {
+                "vid": utils.hex_str_with_pad(vlan_id, pad=4),
+                "nm": "",
+                "piso": True,
+                "lrn": True,
+                "mrr": False,
+                "igmp": False,
+                "mbr": [0] * self.port_count,
+            }
+            self._data.append(_vlan_config)
+            self._parsed_data[vlan_id] = _vlan_config
+
+        _vlan_config["nm"] = vlan_name
+        _vlan_config["piso"] = kwargs.get("port_isolation")
+        _vlan_config["lrn"] = kwargs.get("learning")
+        _vlan_config["mrr"] = kwargs.get("mirror")
+        _vlan_config["igmp"] = kwargs.get("igmp_snooping")
+
+    def remove(self, vlan_id):
+        vlan = self._parsed_data.pop(vlan_id)
+        if vlan:
+            self._data.remove(vlan["idx"])
+            self._data_changed = True
+            return True
+
+        return False
+
+    def save(self, dry_run=False):
+        i = 0
+        while i < len(self._data):
+            vlan_id = int(self._data[i]['vid'], 16)
+            self._update_data(i, utils.encode_string(self._parsed_data[vlan_id]["nm"]), "nm")
+            self._update_data(i, utils.encode_listofflags(self._parsed_data[vlan_id]["mbr"], self.port_count), "mbr")
+            for k in ["piso", "lrn", "mrr", "igmp"]:
+                self._update_data(i, utils.encode_checkbox(self._parsed_data[vlan_id][k]), k)
+            i += 1
+
+        return self._save(dry_run)
+
+    def show(self):
+        print("vlan tab")
+        for i in self._parsed_data:
+            print("* vlan: {} => {}".format(i, self._parsed_data[i]))
+        print("")
