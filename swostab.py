@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-
 import logging
 import requests
 from mikrotik_swos import utils
@@ -24,16 +23,20 @@ class Swostab:
         if value is None:
             return
         # new_value = None   # this is a better way to do it, for the future
-        if type(value) is list:
-            if field_index is not None:
-                print("dit kan niet filedindex en een array ter vervanging")
-                error
-            for val in range(len(value)):
-                self._update_data(field,value = value[val], field_index = val)
-            return
+        print("update_data","field=", field,"value=", value,"field_index=",field_index)
+        if False:
+            if type(value) is list:
+                if field_index is None:
+                    for val in range(len(value)):
+                        self._update_data(field,value = value[val], field_index = val)
+                    return
         if field_index is not None:
             old_value = self._data[field][field_index]
-            if value.startswith("0x"):
+            print("old value=",old_value)
+            if type(value) is list:       # is it a "[0x0fffffff,0xffffffff]"?
+                for i in range(len(value)):
+                    value[i] = utils.hex_str_with_pad(value[i], utils.hex_value_len(old_value[i]))
+            elif value.startswith("0x"):
                 value = utils.hex_str_with_pad(value, utils.hex_value_len(old_value))
             if value != old_value:
                 logging.debug(f"update data ({field}/{field_index}): {old_value} -> {value}")
@@ -43,7 +46,11 @@ class Swostab:
 
         old_value = self._data[field]
         print("oldvaule=",old_value, "value =",value)
-        if value.startswith("0x"):
+        if type(value) is list:
+            for i in range(len(value)):
+                if value[i].startswith("0x"):
+                    value[i] = utils.hex_str_with_pad(value[i], utils.hex_value_len(old_value[i]))
+        elif value.startswith("0x"):
             value = utils.hex_str_with_pad(value, utils.hex_value_len(old_value))
         if value != old_value:
             logging.debug(f"update data ({field}): {old_value} -> {value}")

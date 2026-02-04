@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+# todo add everything as property (readonly, and maybe also set)
 
 import ipaddress
 
@@ -59,9 +59,10 @@ class Mikrotik_System(Swostab):
             else:
                 raise ValueError(f"switch identity length is greater than {SWITCH_ID_LENGTH_MAX}")
 
-        allow_from_port = utils.ports_to_flag_list(kwargs.get("allow_from_port"), self.port_count)
-        igmp_fast_leave = utils.ports_to_flag_list(kwargs.get("igmp_fast_leave"), self.port_count)
-        dhcp_trusted_port = utils.ports_to_flag_list(kwargs.get("dhcp_trusted_port"), self.port_count)
+        allow_from_port = utils.encode_listofflags(kwargs.get("allow_from_port"), self.port_count)
+        print("allow from ports = ",allow_from_port)
+        igmp_fast_leave = utils.encode_listofflags(kwargs.get("igmp_fast_leave"), self.port_count)
+        dhcp_trusted_port = utils.encode_listofflags(kwargs.get("dhcp_trusted_port"), self.port_count)
 
         if kwargs.get("allow_from_net4"):
             # mikrotik switch expect a valid network/mask combination => 10.31.0.0/15 is wrong
@@ -73,14 +74,14 @@ class Mikrotik_System(Swostab):
                 self._update_data("allm", utils.hex_str_with_pad(32, pad=2))
         if kwargs.get("allow_from_vlan"):
             self._update_data("avln", utils.hex_str_with_pad(int(kwargs.get("allow_from_vlan")), 4))
-        self._update_data("allp", utils.encode_listofflags(allow_from_port, self.port_count))
+        self._update_data("allp", allow_from_port)
         self._update_data("wdt", utils.encode_checkbox(kwargs.get("watchdog")))
         self._update_data("ivl", utils.encode_checkbox(kwargs.get("independant_vlan_lookup")))
         self._update_data("igmp", utils.encode_checkbox(kwargs.get("igmp_snooping")))
-        self._update_data("igfl", utils.encode_listofflags(igmp_fast_leave, self.port_count))
-        self._update_data("dtrp", utils.encode_listofflags(dhcp_trusted_port, self.port_count))
+        self._update_data("igfl", igmp_fast_leave)
+        self._update_data("dtrp", dhcp_trusted_port)
         self._update_data("ainf", utils.encode_checkbox(kwargs.get("dhcp_add_information_option")))
-
+        
         # switch rstp is displayed in rstp tab (but GET/POST are done on sys.b)
         if kwargs.get("rstp_bridge_priority"):
             try:
@@ -107,17 +108,45 @@ class Mikrotik_System(Swostab):
         if self.version >= 2.17:
             _discovery_protocol = kwargs.get("mikrotik_discovery_protocol")
             if isinstance(_discovery_protocol, bool):
-                if _discovery_protocol:
-                    discovery_protocol = [1] * self.port_count
+                if _discovery_protocol:                  # maybe set it to the range, en then encode
+                    discovery_protocol = utils.encode_listofflags(set(range(1, self.port_count + 1)), self.port_count)
                 else:
-                    discovery_protocol = [0] * self.port_count
+                    discovery_protocol = utils.encode_listofflags(set(), self.port_count)
             else:
-                discovery_protocol = utils.ports_to_flag_list(_discovery_protocol, self.port_count)
+                #discovery_protocol = utils.ports_to_flag_list(_discovery_protocol, self.port_count)
+                discovery_protocol = utils.encode_listofflags(_discovery_protocol, self.port_count)
 
-            self._update_data("pdsc", utils.encode_listofflags(discovery_protocol, self.port_count))
+            self._update_data("pdsc", discovery_protocol)
         else:
             self._update_data("dsc", utils.encode_checkbox(kwargs.get("mikrotik_discovery_protocol")))
 
+    @property
+    def identity(self):
+        return utils.decode_string(self._data["id"])
+
+    @property
+    def allow_from_port(self):
+        return utils.decode_listofflags(self._data["allp"], self.port_count)
+
+    @property
+    def igmp_fast_leave(self):
+        return utils.decode_listofflags(self._data["igfl"], self.port_count)
+    
+    @property
+    def dhcp_trusted_port(self):
+        return utils.decode_listofflags(self._data["dtrp"], self.port_count)
+    
+    @property
+    def mikrotik_discovery_protocol(self):
+        if self.version >= 2.17:
+            return utils.decode_listofflags(self._data["pdsc"], self.port_count)
+        return utils.decode_checkbox(self._data["dsc"])
+
+    @property
+    def dhcp_add_information_option(self):
+        return utils.decode_checkbox(self._data["ainf"])
+    
+    
     def show(self):
         rstp_port_cost_mode_str = {v: k for k, v in RSTP_PORT_COST_MODE.items()}
         

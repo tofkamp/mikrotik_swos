@@ -137,7 +137,7 @@ class Mikrotik_Port(Swostab):
         sfp_rate_str = {v: k for k, v in PORT_SFP_RATE.items()}
 
         print("link tab")
-        for i in range(0, self.port_count):
+        for i in range(1, self.port_count + 1):
             properties = [
                 f"enabled: {i in self.parsed_data['enabled']}",
                 f"full duplex: {i in self.parsed_data['duplex']}",

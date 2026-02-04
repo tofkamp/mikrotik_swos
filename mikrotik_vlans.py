@@ -20,7 +20,7 @@ class Mikrotik_Vlans(Swostab):
         self._data = utils.mikrotik_to_json(self._get(PAGE).text)
         for i in self._data:
             self._parsed_data[int(i['vid'], 16)] = {
-                "idx": i,
+                #"idx": i,
                 "nm": utils.decode_string(i["nm"]),
                 "piso": utils.decode_checkbox(i["piso"]),
                 "lrn": utils.decode_checkbox(i["lrn"]),
@@ -39,7 +39,7 @@ class Mikrotik_Vlans(Swostab):
 
     def reset_member_cfg(self):
         for vlan in self._parsed_data:
-            self._parsed_data[vlan]["mbr"] = [0] * self.port_count
+            self._parsed_data[vlan]["mbr"] = set()
 
     def add_port(self, vlan_id, port_id):
         """
@@ -53,7 +53,7 @@ class Mikrotik_Vlans(Swostab):
 
         _vlan_config = self.get(vlan_id)
         if _vlan_config:
-            _vlan_config["mbr"][port_id-1] = 1
+            _vlan_config["mbr"].add(port_id)
             return
 
         raise ValueError(f"vlan id {vlan_id} is not configured on the switch")
@@ -82,21 +82,22 @@ class Mikrotik_Vlans(Swostab):
                 "lrn": True,
                 "mrr": False,
                 "igmp": False,
-                "mbr": [0] * self.port_count,
+                "mbr": set()
             }
             self._data.append(_vlan_config)
+            _vlan_config["mbr"] = utils.encode_listofflags(_vlan_config["mbr"], self.port_count)
             self._parsed_data[vlan_id] = _vlan_config
 
         _vlan_config["nm"] = vlan_name
-        _vlan_config["piso"] = kwargs.get("port_isolation")
-        _vlan_config["lrn"] = kwargs.get("learning")
-        _vlan_config["mrr"] = kwargs.get("mirror")
-        _vlan_config["igmp"] = kwargs.get("igmp_snooping")
+        _vlan_config["piso"] = kwargs.get("port_isolation",False)
+        _vlan_config["lrn"] = kwargs.get("learning",True)
+        _vlan_config["mrr"] = kwargs.get("mirror",False)
+        _vlan_config["igmp"] = kwargs.get("igmp_snooping",False)
 
     def remove(self, vlan_id):
         vlan = self._parsed_data.pop(vlan_id)
         if vlan:
-            self._data.remove(vlan["idx"])
+            #self._data.remove(vlan["idx"])
             self._data_changed = True
             return True
 
@@ -117,5 +118,18 @@ class Mikrotik_Vlans(Swostab):
     def show(self):
         print("vlan tab")
         for i in self._parsed_data:
-            print("* vlan: {} => {}".format(i, self._parsed_data[i]))
+            #_parsed_data = self._parsed_data[i]['idx']
+            _parsed_data = self._parsed_data[i]
+            properties = {
+                "name": _parsed_data['nm'],
+                "Port isolation": _parsed_data['piso'],
+                "learning": _parsed_data['lrn'],
+                "Mirror": _parsed_data['mrr'],
+                "IGMP": _parsed_data['igmp'],
+                "Members":  _parsed_data['mbr'],
+            }
+            print(f"* vlan {i}:")
+            for prop in properties:
+                print(f" * {prop}:{properties[prop]}")
+            #print("* vlan: {} => {}".format(i, self._parsed_data[i]))
         print("")

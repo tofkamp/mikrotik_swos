@@ -99,7 +99,7 @@ def encode_listofflags(flags, nr_of_ports):
         for port_nr in range(start_port_nr, end_port_nr + 1):
             if port_nr in flags:
                 value |= bit_mask
-                bit_mask <<= 1
+            bit_mask <<= 1
         return hex(value)
 
     if not isinstance(flags, set):
@@ -149,7 +149,7 @@ def decode_checkbox(s):
     return s == "0x01"
 
 # [1, 3, 4] --> [1, 0, 1, 1]
-def ports_to_flag_list(ports, fill=0):
+def ports_to_flag_list(ports, fill=0):       ########### not used anymore
     if not isinstance(ports, list):
         return None
 

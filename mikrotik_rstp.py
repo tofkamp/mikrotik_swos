@@ -29,9 +29,9 @@ class Mikrotik_Rstp(Swostab):
             raise ValueError(f"port_id is outside 1..{self.port_count}")
 
         if rstp_mode:
-            self._parsed_data["ena"][port_id-1] = 1
+            self._parsed_data["ena"].add(port_id)
         else:
-            self._parsed_data["ena"][port_id-1] = 0
+            self._parsed_data["ena"].remove(port_id-1)
 
     def save(self, dry_run=False):
         self._update_data("ena", utils.encode_listofflags(self._parsed_data["ena"],self.port_count))
