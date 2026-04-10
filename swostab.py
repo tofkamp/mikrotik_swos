@@ -23,7 +23,7 @@ class Swostab:
         if value is None:
             return
         # new_value = None   # this is a better way to do it, for the future
-        print("update_data","field=", field,"value=", value,"field_index=",field_index)
+        #print("update_data","field=", field,"value=", value,"field_index=",field_index)
         if False:
             if type(value) is list:
                 if field_index is None:
@@ -32,8 +32,9 @@ class Swostab:
                     return
         if field_index is not None:
             old_value = self._data[field][field_index]
-            print("old value=",old_value)
+            #print("old value=",old_value)
             if type(value) is list:       # is it a "[0x0fffffff,0xffffffff]"?
+                #print("value =",value)
                 for i in range(len(value)):
                     value[i] = utils.hex_str_with_pad(value[i], utils.hex_value_len(old_value[i]))
             elif value.startswith("0x"):
@@ -45,7 +46,7 @@ class Swostab:
             return
 
         old_value = self._data[field]
-        print("oldvaule=",old_value, "value =",value)
+        #print("oldvaule=",old_value, "value =",value)
         if type(value) is list:
             for i in range(len(value)):
                 if value[i].startswith("0x"):

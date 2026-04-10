@@ -27,10 +27,16 @@ VOLTAGE_LEVEL = {
 
 # poes
 POE_STATUS = {
-    "short circuit":    "0x00",  # to be confirmed
     "disabled":         "0x01",
     "waiting for load": "0x02",
-    "powered on":       "0x03"
+    "powered on":       "0x03",
+    "overload":         "0x04",
+    "short circuit":    "0x05",
+    "voltage too low":  "0x06",
+    "current too low":  "0x07",
+    "power cycle":      "0x08",
+    "voltage too high": "0x09",
+    "controller error": "0x0a"
 }
 
 POE_MIN_PRIORITY = 1
@@ -50,7 +56,8 @@ class Mikrotik_Poe(Swostab):
         else:
             self.has_lldp = False
 
-    def configure_port(self, port_id, **kwargs):
+    #def configure_port(self, port_id, **kwargs):
+    def configure_port(self, **kwargs):
         """
         port_id             port index 1..port_poe_count
         priority            priority 1..8
@@ -59,6 +66,7 @@ class Mikrotik_Poe(Swostab):
         voltage_level       auto / low / high
 
         """
+        port_id = kwargs.get("port_id")
         if port_id < 1 or port_id > self.port_poe_count:
             raise ValueError(f"port_id is outside 1..{self.port_poe_count}")
 

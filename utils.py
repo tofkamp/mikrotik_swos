@@ -36,7 +36,7 @@ def decode_listofflags_old(s, zfill=0):
 
     if s is None or len(s) == 0:
         return flags
-    print(type(s),s)
+    #print(type(s),s)
     # list is reversed (example port1 is last item)
     flags_str = bin(int(s, 16))[2:]
     if zfill > 0:

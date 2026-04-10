@@ -60,10 +60,10 @@ class Mikrotik_System(Swostab):
                 raise ValueError(f"switch identity length is greater than {SWITCH_ID_LENGTH_MAX}")
 
         allow_from_port = utils.encode_listofflags(kwargs.get("allow_from_port"), self.port_count)
-        print("allow from ports = ",allow_from_port)
+        #print("allow from ports = ",allow_from_port)
         igmp_fast_leave = utils.encode_listofflags(kwargs.get("igmp_fast_leave"), self.port_count)
         dhcp_trusted_port = utils.encode_listofflags(kwargs.get("dhcp_trusted_port"), self.port_count)
-
+        
         if kwargs.get("allow_from_net4"):
             # mikrotik switch expect a valid network/mask combination => 10.31.0.0/15 is wrong
             tokens = str(ipaddress.IPv4Network(kwargs.get("allow_from_net4"), strict=False)).split("/")
@@ -122,7 +122,41 @@ class Mikrotik_System(Swostab):
 
     @property
     def identity(self):
+        """
+        Name of the switch
+        """
         return utils.decode_string(self._data["id"])
+
+    @property
+    def board_name(self):
+        """
+        MikroTik model name of the switch
+        """
+        return utils.decode_string(self._data["brd"])
+
+    @property
+    def serial_number(self):
+        """
+        Serial number of the switch
+        """
+        return utils.decode_string(self._data["sid"])
+
+    # this will conflict with the swostab module, because it needs the version also
+    #@property
+    #def version(self):
+    #    """
+    #    Version of SWoS
+    #    """
+    #    return utils.decode_string(self._data["ver"])
+
+    @property
+    def revision(self):
+        """
+        Revision of the model
+        """
+        return utils.decode_string(self._data["rev"])
+
+    # to do: MAC address, uptime
 
     @property
     def allow_from_port(self):

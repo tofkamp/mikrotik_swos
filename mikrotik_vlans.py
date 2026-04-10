@@ -45,7 +45,6 @@ class Mikrotik_Vlans(Swostab):
         """
         vlan_id             vlan id
         port_id             port index
-
         """
 
         if port_id < 1 or port_id > self.port_count:
@@ -59,7 +58,8 @@ class Mikrotik_Vlans(Swostab):
         raise ValueError(f"vlan id {vlan_id} is not configured on the switch")
 
 
-    def add(self, vlan_id, **kwargs):
+#    def add(self, vlan_id, **kwargs):
+    def add(self, **kwargs):
         """
         vlan_id             vlan id
         name                vlan name
@@ -69,6 +69,10 @@ class Mikrotik_Vlans(Swostab):
         igmp_snooping       true / false
 
         """
+        vlan_id = kwargs.get("vlan_id")
+        if not vlan_id:
+            raise ValueError(f"vlan id is required")
+        
         vlan_name = kwargs.get("name", str(vlan_id))
         if len(vlan_name) > VLAN_NAME_LENGTH_MAX:
             raise ValueError(f"vlan name length is greater than {VLAN_NAME_LENGTH_MAX}")
@@ -76,7 +80,7 @@ class Mikrotik_Vlans(Swostab):
         _vlan_config = self.get(vlan_id)
         if _vlan_config is None:
             _vlan_config = {
-                "vid": utils.hex_str_with_pad(vlan_id, pad=4),
+                #"vid": utils.hex_str_with_pad(vlan_id, pad=4),
                 "nm": "",
                 "piso": True,
                 "lrn": True,
@@ -84,17 +88,53 @@ class Mikrotik_Vlans(Swostab):
                 "igmp": False,
                 "mbr": set()
             }
-            self._data.append(_vlan_config)
-            _vlan_config["mbr"] = utils.encode_listofflags(_vlan_config["mbr"], self.port_count)
-            self._parsed_data[vlan_id] = _vlan_config
+            self._data.append({'nm': '6b616e746f6f72', 'mbr': utils.encode_listofflags(set(), self.port_count),
+                               'vid': utils.hex_str_with_pad(vlan_id, pad=4),
+                               'piso': '0x00', 'lrn': '0x01', 'mrr': '0x00', 'igmp': '0x00'})
+            #_vlan_config["mbr"] = utils.encode_listofflags(_vlan_config["mbr"], self.port_count)
+            #self._data.append(_vlan_config)
+            #print("self data",self._data[0])   # {'nm': '74657374', 'mbr': ['0x0fffffff', '0xffffffff'], 'vid': '0x0d05', 'piso': '0x01', 'lrn': '0x01', 'mrr': '0x00', 'igmp': '0x00'}
+            #self._parsed_data[vlan_id] = _vlan_config
 
         _vlan_config["nm"] = vlan_name
         _vlan_config["piso"] = kwargs.get("port_isolation",False)
         _vlan_config["lrn"] = kwargs.get("learning",True)
         _vlan_config["mrr"] = kwargs.get("mirror",False)
         _vlan_config["igmp"] = kwargs.get("igmp_snooping",False)
+        
+        self._parsed_data[vlan_id] = _vlan_config
 
+    # this function is not used yet
+    def set(self, vlan_id, **kwargs):
+        """
+        Change a setting of the vlan, if not specified, it is not changed.
+        vlan_id             vlan id
+        name                vlan name
+        port_isolation      true / false
+        learning            true / false
+        mirror              true / false
+        igmp_snooping       true / false
+
+        """
+        _vlan_config = self.get(vlan_id)
+        if _vlan_config is None:
+            raise ValueError(f"vlan {vlan_id} is not defined yet")
+        ########################
+        if "name" in kwargs:
+            vlan_name = kwargs.get("name", str(vlan_id))
+            if len(vlan_name) > VLAN_NAME_LENGTH_MAX:
+                raise ValueError(f"vlan name length is greater than {VLAN_NAME_LENGTH_MAX}")
+            _vlan_config["nm"] = vlan_name
+
+        args = { "piso" : "port_isolation", "lrn" : "learning", "mrr" : "mirror", "igmp" : "igmp_snooping" }
+        for arg in args:
+            if args[arg] in kwargs:
+                _vlan_config[arg] = kwargs.get(args[arg])
+        
     def remove(self, vlan_id):
+        """
+        remove a vlan from the switch
+        """
         vlan = self._parsed_data.pop(vlan_id)
         if vlan:
             #self._data.remove(vlan["idx"])
@@ -104,6 +144,9 @@ class Mikrotik_Vlans(Swostab):
         return False
 
     def save(self, dry_run=False):
+        """
+        write the config to the switch
+        """
         i = 0
         while i < len(self._data):
             vlan_id = int(self._data[i]['vid'], 16)
