@@ -1,0 +1,355 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/mikrotik_swos.config.schema.json",
+  "title": "mikrotik_swos configuration file",
+  "description": "Declarative configuration for a MikroTik SwOS/SwOS Lite switch, matching the keyword arguments accepted by the tofkamp/mikrotik_swos Python library (Mikrotik_System, Mikrotik_Port, Mikrotik_Vlans, Mikrotik_Snmp, Mikrotik_Poe, Mikrotik_Rstp, Mikrotik_Lacp, Mikrotik_Forwarding). A tool reading this file is expected to instantiate each tab class, call its configure/set method(s) with the matching section, then call save().",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "device": { "$ref": "#/$defs/device" },
+    "system": { "$ref": "#/$defs/system" },
+    "snmp": { "$ref": "#/$defs/snmp" },
+    "ports": {
+      "type": "array",
+      "description": "Link tab. One entry per physical port (mikrotik_port.py / Mikrotik_Port.configure).",
+      "items": { "$ref": "#/$defs/port" }
+    },
+    "vlans": {
+      "type": "array",
+      "description": "VLAN tab (mikrotik_vlans.py / Mikrotik_Vlans.add / .set).",
+      "items": { "$ref": "#/$defs/vlan" }
+    },
+    "poe": {
+      "type": "array",
+      "description": "PoE tab (mikrotik_poe.py / Mikrotik_Poe.configure_port). Only applicable to PoE-out capable switches.",
+      "items": { "$ref": "#/$defs/poePort" }
+    },
+    "rstp": {
+      "type": "array",
+      "description": "RSTP tab, per-port enable (mikrotik_rstp.py / Mikrotik_Rstp.on_port). Bridge-wide RSTP settings live under system.",
+      "items": { "$ref": "#/$defs/rstpPort" }
+    },
+    "lacp": {
+      "type": "array",
+      "description": "LACP/LAG tab (mikrotik_lacp.py / Mikrotik_Lacp.port_lacp_mode).",
+      "items": { "$ref": "#/$defs/lacpPort" }
+    },
+    "forwarding": { "$ref": "#/$defs/forwarding" }
+  },
+
+  "$defs": {
+
+    "portIndex": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "1-based port index. Valid range is 1..port_count as reported by the switch (link.b); this schema cannot enforce the device-specific upper bound."
+    },
+
+    "portList": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/portIndex" },
+      "uniqueItems": true
+    },
+
+    "device": {
+      "type": "object",
+      "description": "Connection parameters used to construct each tab class, e.g. Mikrotik_Port(url, login, password). Not written to the switch itself.",
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "Switch address, with or without scheme (e.g. '192.168.88.1' or 'http://192.168.88.1'). HTTPS is not supported by SwOS.",
+          "examples": ["192.168.88.1", "http://switch1.lan"]
+        },
+        "login": { "type": "string", "description": "SwOS username." },
+        "password": { "type": "string", "description": "SwOS password." }
+      },
+      "required": ["url", "login"]
+    },
+
+    "system": {
+      "type": "object",
+      "description": "System tab, bridge-wide RSTP settings, IGMP snooping, DHCP snooping, discovery protocol (mikrotik_system.py / Mikrotik_System.set).",
+      "additionalProperties": false,
+      "properties": {
+        "identity": {
+          "type": "string",
+          "maxLength": 16,
+          "description": "Switch identity/name."
+        },
+        "allow_from_net4": {
+          "type": "string",
+          "pattern": "^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(/([0-9]|[12][0-9]|3[0-2]))?$",
+          "description": "IPv4 network allowed to manage the switch, e.g. '10.0.0.0/8'. Parsed with ipaddress.IPv4Network(strict=False); a bare host address defaults to /32.",
+          "examples": ["10.0.0.0/8", "192.168.88.0/24"]
+        },
+        "allow_from_vlan": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535,
+          "description": "VLAN ID allowed to manage the switch (0 = any/disabled, device dependent)."
+        },
+        "allow_from_port": {
+          "$ref": "#/$defs/portList",
+          "description": "Ports allowed to manage the switch."
+        },
+        "watchdog": { "type": "boolean" },
+        "independant_vlan_lookup": {
+          "type": "boolean",
+          "description": "Independent VLAN Lookup (IVL)."
+        },
+        "igmp_snooping": { "type": "boolean" },
+        "igmp_fast_leave": {
+          "$ref": "#/$defs/portList",
+          "description": "Ports with IGMP fast leave enabled."
+        },
+        "igmp_querier": {
+          "type": "boolean",
+          "description": "Requires firmware >= 2.16 and igmp_snooping = true; otherwise ignored/forced off."
+        },
+        "igmp_version": {
+          "type": "string",
+          "enum": ["v2", "v3"],
+          "default": "v3",
+          "description": "Requires firmware >= 2.16."
+        },
+        "dhcp_trusted_port": {
+          "$ref": "#/$defs/portList",
+          "description": "Ports trusted for DHCP snooping."
+        },
+        "dhcp_add_information_option": {
+          "type": "boolean",
+          "description": "DHCP Option 82."
+        },
+        "mikrotik_discovery_protocol": {
+          "description": "On firmware < 2.17 this is a single on/off switch (boolean). On firmware >= 2.17 it is a per-port list; 'true' expands to all ports, 'false' to none.",
+          "oneOf": [
+            { "type": "boolean" },
+            { "$ref": "#/$defs/portList" }
+          ]
+        },
+        "rstp_bridge_priority": {
+          "type": "string",
+          "pattern": "^(0x)?[0-9a-fA-F]{1,4}$",
+          "description": "RSTP bridge priority, hex string in [0, ffff] (e.g. '0x8000')."
+        },
+        "rstp_port_cost_mode": {
+          "type": "string",
+          "enum": ["short", "long"],
+          "default": "short"
+        },
+        "rsptp_forward_reserved_multicast": {
+          "type": "boolean",
+          "description": "Forward reserved (802.1D) multicast addresses instead of processing them as BPDUs. Name matches the library's kwarg spelling exactly ('rsptp...')."
+        }
+      }
+    },
+
+    "snmp": {
+      "type": "object",
+      "description": "SNMP tab (mikrotik_snmp.py / Mikrotik_Snmp.set). SwOS supports SNMP v1/v2c read-only; no traps, no config writes via SNMP.",
+      "additionalProperties": false,
+      "properties": {
+        "enable": { "type": "boolean" },
+        "community": { "type": "string" },
+        "contact_info": { "type": "string" },
+        "location": { "type": "string" }
+      }
+    },
+
+    "port": {
+      "type": "object",
+      "description": "Link tab entry for a single port (mikrotik_port.py / Mikrotik_Port.configure).",
+      "additionalProperties": false,
+      "required": ["port_id"],
+      "properties": {
+        "port_id": { "$ref": "#/$defs/portIndex" },
+        "name": {
+          "type": "string",
+          "maxLength": 16,
+          "description": "Port label."
+        },
+        "enabled": { "type": "boolean" },
+        "autoneg": {
+          "type": "boolean",
+          "default": true,
+          "description": "Auto-negotiation. When false, 'speed' is applied."
+        },
+        "duplex": {
+          "type": "boolean",
+          "default": true,
+          "description": "Full duplex."
+        },
+        "tx_flow_control": { "type": "boolean", "default": false },
+        "rx_flow_control": { "type": "boolean", "default": false },
+        "speed": {
+          "type": "string",
+          "enum": ["10", "100", "1000", "2500", "10000"],
+          "description": "Link speed in Mbps, only used when autoneg = false.",
+          "default": "1000"
+        },
+        "sfp_rate": {
+          "type": "string",
+          "enum": ["low", "high"],
+          "description": "SFP-only. Requires firmware >= 2.16. Setting this on a non-SFP port raises an error."
+        },
+        "combo_mode": {
+          "type": "string",
+          "enum": ["auto", "copper", "sfp"],
+          "description": "Combo-port-only. Requires firmware >= 2.16. Setting this on a non-combo port raises an error."
+        }
+      }
+    },
+
+    "vlan": {
+      "type": "object",
+      "description": "VLAN tab entry (mikrotik_vlans.py / Mikrotik_Vlans.add and .set).",
+      "additionalProperties": false,
+      "required": ["vlan_id"],
+      "properties": {
+        "vlan_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4094
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 16,
+          "description": "Defaults to the string form of vlan_id if omitted on create."
+        },
+        "port_isolation": { "type": "boolean", "default": false },
+        "learning": { "type": "boolean", "default": true },
+        "mirror": { "type": "boolean", "default": false },
+        "igmp_snooping": { "type": "boolean", "default": false },
+        "members": {
+          "$ref": "#/$defs/portList",
+          "description": "Ports that are members of this VLAN (mbr). Equivalent to repeated Mikrotik_Vlans.add_port() calls."
+        }
+      }
+    },
+
+    "poePort": {
+      "type": "object",
+      "description": "PoE tab entry (mikrotik_poe.py / Mikrotik_Poe.configure_port). port_id range is 1..port_poe_count, which is not always equal to port_count.",
+      "additionalProperties": false,
+      "required": ["port_id"],
+      "properties": {
+        "port_id": { "$ref": "#/$defs/portIndex" },
+        "priority": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8,
+          "description": "PoE priority, 1 = highest."
+        },
+        "lldp_enabled": {
+          "type": "boolean",
+          "description": "Only meaningful on switches that report LLDP support (has_lldp)."
+        },
+        "poe_output": {
+          "type": "string",
+          "enum": ["off", "on", "auto"],
+          "default": "auto"
+        },
+        "voltage_level": {
+          "type": "string",
+          "enum": ["auto", "low", "high"],
+          "default": "auto"
+        }
+      }
+    },
+
+    "rstpPort": {
+      "type": "object",
+      "description": "Per-port RSTP enable/disable (mikrotik_rstp.py / Mikrotik_Rstp.on_port).",
+      "additionalProperties": false,
+      "required": ["port_id", "enabled"],
+      "properties": {
+        "port_id": { "$ref": "#/$defs/portIndex" },
+        "enabled": { "type": "boolean" }
+      }
+    },
+
+    "lacpPort": {
+      "type": "object",
+      "description": "Per-port LACP/LAG mode (mikrotik_lacp.py / Mikrotik_Lacp.port_lacp_mode).",
+      "additionalProperties": false,
+      "required": ["port_id", "mode"],
+      "properties": {
+        "port_id": { "$ref": "#/$defs/portIndex" },
+        "mode": {
+          "type": "string",
+          "enum": ["passive", "active", "static"]
+        },
+        "group_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15,
+          "description": "LAG group id. Only used/valid when mode = 'static'."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "mode": { "const": "static" } } },
+          "then": { "required": ["group_id"] }
+        }
+      ]
+    },
+
+    "forwarding": {
+      "type": "object",
+      "description": "Forwarding tab: per-port isolation table and per-port VLAN handling (mikrotik_port_isolation.py / Mikrotik_Forwarding).",
+      "additionalProperties": false,
+      "properties": {
+        "port_isolation": {
+          "type": "array",
+          "description": "For each port, which other ports it is allowed to forward to (Mikrotik_Forwarding.port_isolation). The port always excludes itself; any port not listed is isolated from this one.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["port_id", "allowed_ports"],
+            "properties": {
+              "port_id": { "$ref": "#/$defs/portIndex" },
+              "allowed_ports": {
+                "description": "Either the literal string 'any' (no isolation) or an explicit list of port indices this port may forward to.",
+                "oneOf": [
+                  { "const": "any" },
+                  { "$ref": "#/$defs/portList" }
+                ]
+              }
+            }
+          }
+        },
+        "port_vlan": {
+          "type": "array",
+          "description": "Per-port VLAN handling (Mikrotik_Forwarding.port_vlan_config). Any field omitted is left unchanged on the switch.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["port_id"],
+            "properties": {
+              "port_id": { "$ref": "#/$defs/portIndex" },
+              "mode": {
+                "type": "string",
+                "enum": ["disabled", "optional", "enabled", "strict"],
+                "description": "VLAN mode for this port."
+              },
+              "receive_mode": {
+                "type": "string",
+                "enum": ["any", "only tagged", "only untagged"]
+              },
+              "default_vlan_id": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4094
+              },
+              "force_vlan_id": {
+                "type": "boolean",
+                "description": "Force all traffic on this port into default_vlan_id."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
