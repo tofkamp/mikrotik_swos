@@ -31,7 +31,7 @@ class Mikrotik_Rstp(Swostab):
         if rstp_mode:
             self._parsed_data["ena"].add(port_id)
         else:
-            self._parsed_data["ena"].remove(port_id-1)
+            self._parsed_data["ena"].remove(port_id)
 
     def save(self, dry_run=False):
         self._update_data("ena", utils.encode_listofflags(self._parsed_data["ena"],self.port_count))
