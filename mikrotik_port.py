@@ -1,20 +1,16 @@
 #!/usr/bin/env python3
-
-
 from mikrotik_swos import utils
 from mikrotik_swos.swostab import Swostab
 
-
 # payload
 # {en:0x03c20007,nm:['6d657a7a5f6c6170746f70','6d657a7a5f67616d65','627572656175','506f727434','506f727435','506f727436','506f727437','506f727438','506f727439','506f72743130','506f72743131','506f72743132','506f72743133','506f72743134','506f72743135','506f72743136','506f72743137','6e6574','506f72743139','506f72743230','506f72743231','506f72743232','6865795f31','6865795f32','53465031','53465032'],an:0x03ffffff,spdc:[0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01,0x01],dpxc:0x03ffffff,fctc:0x03ffffff,fctr:0x03ffffff}
-PAGE = "/link.b"
 
+PAGE = "/link.b"
 
 # notes
 # sfpo 0x18 => 24 (first sfp index ?)
 # sfp 0x2 => 2 (sfp count)
 # prt 0x1a => 26 (port count)
-
 
 PORT_SPEED_MB = {
     "10": "0x00",
@@ -37,29 +33,31 @@ PORT_SFP_RATE = {
 
 PORT_NAME_LENGTH_MAX = 16
 
+
 class Mikrotik_Port(Swostab):
     def _load_tab_data(self):
         self._page = PAGE
         self._data = utils.mikrotik_to_json(self._get(PAGE).text)
+
         self.parsed_data = {
             "name": [],
             "speed": [],
         }
 
         self.parsed_data["enabled"] = utils.decode_listofflags(self._data["en"], self.port_count)
-        self.parsed_data["duplex"]  = utils.decode_listofflags(self._data["dpxc"], self.port_count)
+        self.parsed_data["duplex"] = utils.decode_listofflags(self._data["dpxc"], self.port_count)
         self.parsed_data["tx_flow_control"] = utils.decode_listofflags(self._data["fctc"], self.port_count)
         self.parsed_data["rx_flow_control"] = utils.decode_listofflags(self._data["fctr"], self.port_count)
         self.parsed_data["autoneg"] = utils.decode_listofflags(self._data["an"], self.port_count)
         self.parsed_data["speed"] = self._data["spdc"].copy()
+
         for i in range(0, self.port_count):
             self.parsed_data["name"].append(utils.decode_string(self._data["nm"][i]))
 
         if self.version >= 2.16:
             self.parsed_data["sfp_rate"] = self._data["sfpr"].copy()
-
-        self.parsed_data["combo_mode"] = self._data["cm"].copy()
-        self.parsed_data["combo_port"] = utils.decode_listofflags(self._data["comb"], self.port_count)
+            self.parsed_data["combo_mode"] = self._data["cm"].copy()
+            self.parsed_data["combo_port"] = utils.decode_listofflags(self._data["comb"], self.port_count)
 
     def _is_sfp_port(self, port_id):
         if port_id < 1 or port_id > self.port_count:
@@ -75,15 +73,14 @@ class Mikrotik_Port(Swostab):
         """
         port_id             port index
         name                port name
-        enabled             1 (enable) / 0 (disable)
-        autoneg             1 (enable) / 0 (disable)
-        duplex              1 (enable) / 0 (disable)
-        tx_flow_control     1 (enable) / 0 (disable)
-        rx_flow_control     1 (enable) / 0 (disable)
+        enabled             1 (enable) / 0 (disable), omit to leave unchanged
+        autoneg             1 (enable) / 0 (disable), omit to leave unchanged
+        duplex              1 (enable) / 0 (disable), omit to leave unchanged
+        tx_flow_control     1 (enable) / 0 (disable), omit to leave unchanged
+        rx_flow_control     1 (enable) / 0 (disable), omit to leave unchanged
         speed               10 / 100 / 1000 / 2500 / 10000
         sfp_rate            low / high
         combo_mode          auto / copper / sfp
-
         """
         if port_id < 1 or port_id > self.port_count:
             raise ValueError(f"port_id is outside 1..{self.port_count}")
@@ -95,11 +92,23 @@ class Mikrotik_Port(Swostab):
             else:
                 raise ValueError(f"port name length is greater than {PORT_NAME_LENGTH_MAX}")
 
-        port_id in self.parsed_data["enabled"] if kwargs.get("enabled", 0) else 0
-        port_id in self.parsed_data["autoneg"] if kwargs.get("autoneg", 1) else 0
-        port_id in self.parsed_data["duplex"] if kwargs.get("duplex", 1) else 0
-        port_id in self.parsed_data["tx_flow_control"] if kwargs.get("tx_flow_control", 0) else 0
-        port_id in self.parsed_data["rx_flow_control"] if kwargs.get("rx_flow_control", 0) else 0
+        # Each of these flags is a set of 1-based port_ids (see utils.decode_listofflags).
+        # Omitting the kwarg leaves the current setting untouched, matching the
+        # convention used in every other module (e.g. Mikrotik_System.set()).
+        for kw, flag_set_name in (
+            ("enabled", "enabled"),
+            ("autoneg", "autoneg"),
+            ("duplex", "duplex"),
+            ("tx_flow_control", "tx_flow_control"),
+            ("rx_flow_control", "rx_flow_control"),
+        ):
+            value = kwargs.get(kw)
+            if value is not None:
+                if value:
+                    self.parsed_data[flag_set_name].add(port_id)
+                else:
+                    self.parsed_data[flag_set_name].discard(port_id)
+
         if kwargs.get("autoneg", 1) == 0 and kwargs.get("speed"):
             self.parsed_data["speed"][port_id-1] = PORT_SPEED_MB.get(str(kwargs.get("speed")), "0x02")
 
@@ -115,11 +124,12 @@ class Mikrotik_Port(Swostab):
                 self.parsed_data["combo_mode"][port_id-1] = COMBO_MODE.get(kwargs.get("combo_mode"), "0x00")
 
     def save(self, dry_run=False):
-        self._update_data("en", utils.encode_listofflags(self.parsed_data["enabled"],self.port_count))
-        self._update_data("dpxc", utils.encode_listofflags(self.parsed_data["duplex"],self.port_count))
-        self._update_data("fctc", utils.encode_listofflags(self.parsed_data["tx_flow_control"],self.port_count))
-        self._update_data("fctr", utils.encode_listofflags(self.parsed_data["rx_flow_control"],self.port_count))
-        self._update_data("an", utils.encode_listofflags(self.parsed_data["autoneg"],self.port_count))
+        self._update_data("en", utils.encode_listofflags(self.parsed_data["enabled"], self.port_count))
+        self._update_data("dpxc", utils.encode_listofflags(self.parsed_data["duplex"], self.port_count))
+        self._update_data("fctc", utils.encode_listofflags(self.parsed_data["tx_flow_control"], self.port_count))
+        self._update_data("fctr", utils.encode_listofflags(self.parsed_data["rx_flow_control"], self.port_count))
+        self._update_data("an", utils.encode_listofflags(self.parsed_data["autoneg"], self.port_count))
+
         for i in range(0, self.port_count):
             self._update_data("nm", utils.encode_string(self.parsed_data["name"][i]), i)
             self._update_data("spdc", self.parsed_data["speed"][i], i)
@@ -137,6 +147,7 @@ class Mikrotik_Port(Swostab):
         sfp_rate_str = {v: k for k, v in PORT_SFP_RATE.items()}
 
         print("link tab")
+        # i is the 1-based port_id throughout this loop.
         for i in range(1, self.port_count + 1):
             properties = [
                 f"enabled: {i in self.parsed_data['enabled']}",
@@ -145,16 +156,16 @@ class Mikrotik_Port(Swostab):
                 f"flow ctrl tx: {i in self.parsed_data['rx_flow_control']}",
                 f"autoneg: {i in self.parsed_data['autoneg']}"
             ]
-
             if i not in self.parsed_data['autoneg']:
-                properties.append(f"speed: {port_speed_mb_str[self.parsed_data['speed'][i]]}mb/s")
+                # 0-based list -> use i-1
+                properties.append(f"speed: {port_speed_mb_str[self.parsed_data['speed'][i-1]]}mb/s")
 
             if self.version >= 2.16:
-                if self._is_combo_port(i+1):
-                    properties.append(f"combo mode: {combo_mode_str[self.parsed_data['combo_mode'][i]]}")
-                if self._is_sfp_port(i+1):
-                    properties.append(f"sfp rate: {sfp_rate_str[self.parsed_data['sfp_rate'][i]]}")
+                # i is already 1-based, don't add another +1
+                if self._is_combo_port(i):
+                    properties.append(f"combo mode: {combo_mode_str[self.parsed_data['combo_mode'][i-1]]}")
+                if self._is_sfp_port(i):
+                    properties.append(f"sfp rate: {sfp_rate_str[self.parsed_data['sfp_rate'][i-1]]}")
 
-            print(f"* {self.parsed_data['name'][i]} {', '.join(properties)}")
-
+            print(f"* {self.parsed_data['name'][i-1]} {', '.join(properties)}")
         print("")

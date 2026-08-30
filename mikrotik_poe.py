@@ -1,40 +1,36 @@
 #!/usr/bin/env python3
-
-
 from mikrotik_swos import utils
 from mikrotik_swos.swostab import Swostab
 
-
 # payload poe tab
-# {'poe': ['0x02', '0x02', '0x02', '0x02', '0x02', '0x02', '0x01', '0x00', '0x02', '0x02', '0x02', '0x02', '0x02', '0x02', '0x02', '0x02', '0x02', '0x02', '0x02', '0x02', '0x02', '0x02', '0x02', '0x02'], 'prio': ['0x00', '0x01', '0x02', '0x03', '0x04', '0x05', '0x06', '0x07', '0x00', '0x01', '0x02', '0x03', '0x04', '0x05', '0x06', '0x07', '0x00', '0x01', '0x02', '0x03', '0x04', '0x05', '0x06', '0x07'], 'lvl': ['0x01', '0x02', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00'], 'poes': ['0x02', '0x02', '0x02', '0x02', '0x02', '0x02', '0x03', '0x01', '0x02', '0x02', '0x02', '0x02', '0x02', '0x02', '0x02', '0x02', '0x02', '0x02', '0x02', '0x02', '0x02', '0x02', '0x02', '0x02'], 'std': ['0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00'], 'curr': ['0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0074', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000'], 'volt': ['0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x020e', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000'], 'pwr': ['0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x003d', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000'], 'lldp': '0x00000040', 'ldpw': ['0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000']}
+# {'poe': [...], 'prio': [...], 'lvl': [...], 'poes': [...], 'std': [...], 'curr': [...], 'volt': [...], 'pwr': [...], 'lldp': '0x00000040', 'ldpw': [...]}
 
 PAGE = "/poe.b"
 
-
 # poe
 POE_OUT_MODE = {
-    "off":  "0x00",    
-    "on":   "0x01",
+    "off": "0x00",
+    "on": "0x01",
     "auto": "0x02"
 }
 
 # lvl
 VOLTAGE_LEVEL = {
     "auto": "0x00",
-    "low":  "0x01",
+    "low": "0x01",
     "high": "0x02"
 }
 
 # poes
 POE_STATUS = {
-    "disabled":         "0x01",
+    "disabled": "0x01",
     "waiting for load": "0x02",
-    "powered on":       "0x03",
-    "overload":         "0x04",
-    "short circuit":    "0x05",
-    "voltage too low":  "0x06",
-    "current too low":  "0x07",
-    "power cycle":      "0x08",
+    "powered on": "0x03",
+    "overload": "0x04",
+    "short circuit": "0x05",
+    "voltage too low": "0x06",
+    "current too low": "0x07",
+    "power cycle": "0x08",
     "voltage too high": "0x09",
     "controller error": "0x0a"
 }
@@ -48,6 +44,7 @@ class Mikrotik_Poe(Swostab):
         self._page = PAGE
         self._data = utils.mikrotik_to_json(self._get(PAGE).text)
         self.port_poe_count = len(self._data["poe"])
+
         if "lldp" in self._data:
             self.has_lldp = True
             self.parsed_data = {
@@ -56,15 +53,13 @@ class Mikrotik_Poe(Swostab):
         else:
             self.has_lldp = False
 
-    #def configure_port(self, port_id, **kwargs):
     def configure_port(self, **kwargs):
         """
-        port_id             port index 1..port_poe_count
-        priority            priority 1..8
-        if has_lldp: lldp_enabled        1 (enable) / 0 (disable)
-        poe_output          on / off / auto
-        voltage_level       auto / low / high
-
+        port_id                  port index 1..port_poe_count
+        priority                 priority 1..8
+        if has_lldp: lldp_enabled  1 (enable) / 0 (disable)
+        poe_output               on / off / auto
+        voltage_level            auto / low / high
         """
         port_id = kwargs.get("port_id")
         if port_id < 1 or port_id > self.port_poe_count:
@@ -74,12 +69,15 @@ class Mikrotik_Poe(Swostab):
         if priority is not None:
             if priority < POE_MIN_PRIORITY or priority > POE_MAX_PRIORITY:
                 raise ValueError(f"priority is outside {POE_MIN_PRIORITY}..{POE_MAX_PRIORITY} range")
-
             self._update_data("prio", utils.hex_str_with_pad(priority-1, pad=2), port_id-1)
 
-        if self.has_lldp:            
-            self.parsed_data["lldp"][port_id-1] = 1 if kwargs.get("lldp_enabled", 0) else 0
-            self._update_data("lldp", utils.encode_listofflags(self.parsed_data["lldp"],self.port_count))
+        if self.has_lldp:
+            # "lldp" is a set of 1-based port ids -- add/discard, never index it.
+            if kwargs.get("lldp_enabled", 0):
+                self.parsed_data["lldp"].add(port_id)
+            else:
+                self.parsed_data["lldp"].discard(port_id)
+            self._update_data("lldp", utils.encode_listofflags(self.parsed_data["lldp"], self.port_poe_count))
 
         self._update_data("poe", POE_OUT_MODE.get(kwargs.get("poe_output"), "0x02"), port_id-1)
         self._update_data("lvl", VOLTAGE_LEVEL.get(kwargs.get("voltage_level"), "0x00"), port_id-1)
@@ -90,7 +88,6 @@ class Mikrotik_Poe(Swostab):
         poe_status_str = {v: k for k, v in POE_STATUS.items()}
 
         print("poe tab")
-
         for i in range(0, self.port_poe_count):
             # indexed fpX
             print(f"port {i+1}")
@@ -98,7 +95,8 @@ class Mikrotik_Poe(Swostab):
             print(f"  poe priority: {int(self._data['prio'][i], 16)+1}")
             print(f"  voltage level: {voltage_level_str.get(self._data['lvl'][i], 'unknown')}")
             if self.has_lldp:
-                print(f"  lldp: {self.parsed_data['lldp'][i]}")
+                # membership test against the 1-based set, not a list index
+                print(f"  lldp: {(i+1) in self.parsed_data['lldp']}")
             print(f"  poe status: {poe_status_str.get(self._data['poes'][i], 'unknown')}")
             print(f"  poe current: {int(self._data['curr'][i], 16)} mA")
             print(f"  poe voltage: {round(int(self._data['volt'][i], 16)*0.1, 2)} V")
