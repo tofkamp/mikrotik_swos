@@ -97,8 +97,6 @@ port.configure(3, name="uplink", enabled=True, autoneg=False, speed="1000")
 port.save()
 ```
 
-⚠️ **Known issue:** in the current source, the lines that are supposed to toggle `enabled`, `autoneg`, `duplex`, `tx_flow_control`, and `rx_flow_control` (e.g. `port_id in self.parsed_data["enabled"] if kwargs.get("enabled", 0) else 0`) evaluate a boolean and discard it — they never assign back into `parsed_data`. Only `name`, `speed`, `sfp_rate`, and `combo_mode` are actually applied by `configure()` as currently written.
-
 ### `Mikrotik_Vlans` — VLAN tab (`/vlan.b`)
 
 ```python
@@ -173,8 +171,6 @@ Also exposes live telemetry per port via `_data`: status (`poes`), current (mA),
 rstp.on_port(port_id, rstp_mode)   # rstp_mode: True/False
 rstp.save()
 ```
-
-⚠️ **Known issue:** `on_port(..., False)` calls `self._parsed_data["ena"].remove(port_id-1)`, but the enable set is built and consumed using 1-based `port_id` everywhere else (`add(port_id)`). Disabling a port via this method will either raise `KeyError`/`ValueError` or silently remove the wrong port. Verify behavior against your firmware before relying on it, or set membership manually via `rstp._parsed_data["ena"]`.
 
 ### `Mikrotik_Lacp` — LACP/LAG tab (`/lacp.b`)
 
