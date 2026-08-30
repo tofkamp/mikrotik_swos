@@ -38,9 +38,19 @@ def _combine64(low_list, high_list, i):
     Combine a pair of 32-bit hex words (low, high) for port index i (0-based,
     matching the raw payload lists) into a single 64-bit int. high_list may
     be None if the switch doesn't report a high word for that counter.
+
+    Per-port counters are always one hex string per port regardless of
+    port_count (unlike the flag/bitmask fields such as resc/rese/resh, which
+    switch.encoding between a single hex word and a [low, high] pair once
+    port_count exceeds 32 -- see utils.decode_listofflags/encode_listofflags).
+    This still tolerates a bare scalar defensively, in case some
+    firmware/hardware ever reports a counter that way.
     """
-    low = int(low_list[i], 16)
-    high = int(high_list[i], 16) if high_list is not None else 0
+    low = int(low_list[i], 16) if isinstance(low_list, list) else int(low_list, 16)
+    if high_list is None:
+        high = 0
+    else:
+        high = int(high_list[i], 16) if isinstance(high_list, list) else int(high_list, 16)
     return low + (high << 32)
 
 
