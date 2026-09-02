@@ -4,6 +4,8 @@ Library to access mikrotik SWos API
 This library is based on the work of https://github.com/y-martin/pkg-python3-mikrotik-swos
 I added support for SWoS switches with more than 32 ports, and used a set() for where there is a selections of ports.
 
+I also made a Desired State Configuration for SWoS devices. You can find this at https://github.com/tofkamp/SWos-Config
+
 # mikrotik_swos — API Documentation
 
 ## Overview
